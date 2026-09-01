@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html>
+
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Naruszenia Przestrzeni Airspace PL</title>
+
+  <style>
+    body {
+  margin: 0;
+  padding: 0;
+}
+
+#map {
+  height: 100vh;
+  width: 100%;
+}
+
+/* Główne style dla ikony-kółka */
+.custom-pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%; /* Idealne koło */
+  color: white; /* Kolor symbolu w środku */
+  border: 3px solid rgba(255, 255, 255, 0.8); /* Białe obramowanie */
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+  font-size: 16px; /* Wielkość symbolu w środku */
+  width: 36px; /* Wymuszona wielkość kółka */
+  height: 36px;
+  box-sizing: border-box; /* Ważne dla obramowania */
+}
+
+/* Kolory wypełnienia kółka w zależności od typu */
+.pin-rakieta { background-color: #e74c3c; }   /* Czerwony */
+.pin-dron { background-color: #e67e22; }      /* Pomarańczowy */
+.pin-balon { background-color: #3498db; }     /* Niebieski */
+.pin-helikopter { background-color: #9b59b6; }/* Fioletowy */
+.pin-samolot { background-color: #27ae60; }
+  </style>
+
+  
+</head>
+<body>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<div id="map"></div>
+
+  <script>
+    const map = L.map('map').setView([52.0, 19.0], 6);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
+// Definicja ikon i kolorów
+const typyObiektow = {
+  rakieta: { icon: 'fa-rocket', class: 'pin-rakieta' },
+  dron: { icon: 'fa-plane', class: 'pin-dron' }, // Używam fa-plane, bo wygląda bardziej jak dron
+  balon: { icon: 'fa-lightbulb', class: 'pin-balon' },
+  helikopter: { icon: 'fa-helicopter', class: 'pin-helikopter' },
+  samolot: { icon: 'fa-jet-fighter-up', class: 'pin-samolot' }
+};
+
+// Funkcja tworząca ikony-kółka
+function stworzIkone(typ) {
+  const dane = typyObiektow[typ] || { icon: 'fa-circle-exclamation', class: 'pin-rakieta' };
+  
+  // Rozmiar kółka musi się zgadzać ze stylami CSS
+  const rozmiar = 36;
+  
+  return L.divIcon({
+    className: '', 
+    // Dodajemy strukturę HTML dla kółka
+    html: `<div class="custom-pin ${dane.class}"><i class="fa-solid ${dane.icon}"></i></div>`,
+    iconSize: [rozmiar, rozmiar],
+    // Kotwica ustawiona w środku kółka
+    iconAnchor: [rozmiar / 2, rozmiar / 2],
+    // Popup ustawiony tuż nad górną krawędzią kółka
+    popupAnchor: [0, -rozmiar / 2]
+  });
+}
+
+// Przykładowe dane z przypisanym typem
+const incydenty = [
+  {
+    tytul: "Przewodów",
+    data: "15.11.2022",
+    typ: "rakieta",
+    lat: 50.474542,
+    lng: 23.923292,
+    opis: "Eksplozja pocisku 5-W-55 systemu S-300 (wystrzelonego przez ukraińską obronę przeciwlotniczą) na terenie dawnego PGR. Zginęły 2 osoby, zniszczony został budynek i powstał 5-metrowy lej."
+  },
+  {
+    tytul: "Zamość",
+    data: "16.12.2022",
+    typ: "rakieta",
+    lat: 53.07191321498675,
+    lng: 17.80940223262918,
+    opis: "Rosyjski pocisk manewrujący Ch-55 (cel pozorny bez głowicy) przeleciał 300–500 km nad Polską i rozbił się w lesie. Obiekt stracono z radarów, a jego szczątki przypadkowo odkryto dopiero w kwietniu 2023 r."
+  },
+  {
+    tytul: "Naruszenie przestrzeni",
+    data: "29.12.2023",
+    typ: "rakieta",
+    lat: 50.80437907894412,
+    lng: 23.884279382832798,
+    opis: "Rosyjska rakieta naruszyła polską przestrzeń powietrzną na niecałe trzy minuty, przelatując 40 km, po czym zawróciła i poleciała z powrotem na Ukrainę."
+  },
+  {
+    tytul: "Samolot",
+    data: "11.02.2025",
+    typ: "samolot",
+    lat: 54.5285448780244,
+    lng: 19.468879288933163,
+    opis: "Rosyjski Su-24 wszedł w polską przestrzeń powietrzną w pobliżu Zatoki Gdańskiej na minutę i 12 sekund, osiągając odległość 6,5 km w głąb terytorium Polski. Polscy wojskowi poinformowali, że Rosja przyznała się do naruszenia przestrzeni powietrznej i zrzuciła winę na awarię systemu nawigacyjnego Su-24."
+  },
+  {
+    tytul: "Białowieża",
+    data: "01.08.2023",
+    typ: "helikopter",
+    lat: 52.70166972349648,
+    lng: 23.858893241074462,
+    opis: "Dwa białoruskie śmigłowce naruszyły polską przestrzeń powietrzną. Maszyny leciały bardzo nisko (około 100-200 metrów nad ziemią) i powoli. Widzieli je zarówno przebywający w okolicy turyści, jak i mieszkańcy."
+  },
+  {
+    tytul: "Śmigłowiec",
+    data: "25.04.2025",
+    typ: "helikopter",
+    lat: 54.55517786345155,
+    lng: 19.454975828414465,
+    opis: "Rosyjski śmigłowiec wojskowy z Floty Bałtyckiej wleciał wieczorem w polską przestrzeń powietrzną nad jej wodami terytorialnymi."
+  },
+  {
+    tytul: "Oserdów",
+    data: "24.03.2Naruszenie024",
+    typ: "rakieta",
+    lat: 50.42127270739642,
+    lng: 23.983699375386802,
+    opis: "Rosyjski pocisk manewrujący, wycelowany w Ukrainę, naruszył polską przestrzeń powietrzną na 39 sekund w pobliżu wsi Oserdów, przelatując 2 km, po czym zawrócił i poleciał z powrotem na Ukrainę."
+  },
+  {
+    tytul: "Osiny",
+    data: "20.08.2025",
+    typ: "dron",
+    lat: 51.46431809942768,
+    lng: 22.070758081615853,
+    opis: "Rosyjski dron, prawdopodobnie Gierań-2, przeleciał ponad 200 km w głąb terytorium Polski, a następnie rozbił się na polu i eksplodował ok. północy w Osinach w powiecie łukowskim, miejscowości położonej ok. 100 km od granicy z Polską. Szczątki zostały zidentyfikowane rano 20 sierpnia na spalonym obszarze o średnicy 8–10 m. Podczas 2,5h lotu dron nie został wykryty przez polską obronę przeciwlotniczą. W wyniku eksplozji uszkodzone zostały budynki w wiosce, jednak nikt nie odniósł obrażeń."
+  },
+   {
+    tytul: "Naruszenie przestrzeni",
+    data: "04.09.2025",
+    typ: "dron",
+    lat: 50.90112539464125,
+    lng: 23.51922748941278,
+    opis: "Dwa rosyjskie drony Shahed wdarły się w polską przestrzeń powietrzną podczas ataku na zachodnią Ukrainę. Polskie i sojusznicze samoloty zostały poderwane w odpowiedzi na atak, a drony były monitorowane aż do opuszczenia terytorium Polski. Drony nie zostały zestrzelone, co pozwoliło im powrócić w ukraińską przestrzeń powietrzną."
+  },
+  {
+    tytul: "Polatycze",
+    data: "08.09.2025",
+    typ: "dron",
+    lat: 52.049969325324916,
+    lng: 23.600798788675693,
+    opis: "Nieuzbrojony dron ze znakami zapisanymi cyrylicą rozbił się w Polatyczach, niedaleko granicy białorusko-polskiej."
+  },
+  {
+    tytul: "Oleśno",
+    data: "09.09.2025",
+    typ: "dron",
+    lat: 54.078636708422394,
+    lng: 19.28773819776131,
+    opis: "Jedna z lokalizacji odnalezionych dronów z naruszenia polskiej przestrzeni powietrznej przez kilkanaście dronów Federacji Rosyjskiej w nocy z 9 na 10 września 2025 roku."
+  },
+  {
+    tytul: "Nowe Miasto nad Pilicą",
+    data: "09.09.2025",
+    typ: "dron",
+    lat: 51.61983594196133,
+    lng: 20.575546790972894,
+    opis: "Jedna z lokalizacji odnalezionych dronów z naruszenia polskiej przestrzeni powietrznej przez kilkanaście dronów Federacji Rosyjskiej w nocy z 9 na 10 września 2025 roku."
+  },
+  {
+    tytul: "Mniszków",
+    data: "09.09.2025",
+    typ: "dron",
+    lat: 51.370920401388865,
+    lng: 20.038859034579488,
+    opis: "Jedna z lokalizacji odnalezionych dronów z naruszenia polskiej przestrzeni powietrznej przez kilkanaście dronów Federacji Rosyjskiej w nocy z 9 na 10 września 2025 roku."
+  },
+  {
+    tytul: "Smyków",
+    data: "09.09.2025",
+    typ: "dron",
+    lat: 50.81451072208107,
+    lng: 20.873647460895345,
+    opis: "Jedna z lokalizacji odnalezionych dronów z naruszenia polskiej przestrzeni powietrznej przez kilkanaście dronów Federacji Rosyjskiej w nocy z 9 na 10 września 2025 roku."
+  },
+   {
+    tytul: "Czyżów",
+    data: "09.09.2025",
+    typ: "dron",
+    lat: 50.47442258940624,
+    lng: 20.99619524888112,
+    opis: "Jedna z lokalizacji odnalezionych dronów z naruszenia polskiej przestrzeni powietrznej przez kilkanaście dronów Federacji Rosyjskiej w nocy z 9 na 10 września 2025 roku."
+  },
+  {
+    tytul: "Sobótka",
+    data: "09.09.2025",
+    typ: "dron",
+    lat: 50.795522020919904,
+    lng: 21.677376235488406,
+    opis: "Jedna z lokalizacji odnalezionych dronów z naruszenia polskiej przestrzeni powietrznej przez kilkanaście dronów Federacji Rosyjskiej w nocy z 9 na 10 września 2025 roku."
+  },
+  {
+    tytul: "Rabiany",
+    data: "09.09.2025",
+    typ: "dron",
+    lat: 52.41340197828166,
+    lng: 21.78689840789087,
+    opis: "Jedna z lokalizacji odnalezionych dronów z naruszenia polskiej przestrzeni powietrznej przez kilkanaście dronów Federacji Rosyjskiej w nocy z 9 na 10 września 2025 roku."
+  },
+   {
+    tytul: "Czosnówka",
+    data: "09.09.2025",
+    typ: "dron",
+    lat: 52.01079387260768,
+    lng: 23.21901349076071,
+    opis: "Jedna z lokalizacji odnalezionych dronów z naruszenia polskiej przestrzeni powietrznej przez kilkanaście dronów Federacji Rosyjskiej w nocy z 9 na 10 września 2025 roku."
+  },
+  {
+    tytul: "Żelizna",
+    data: "09.09.2025",
+    typ: "dron",
+    lat: 51.869781968455015,
+    lng: 22.946506262871598,
+    opis: "Jedna z lokalizacji odnalezionych dronów z naruszenia polskiej przestrzeni powietrznej przez kilkanaście dronów Federacji Rosyjskiej w nocy z 9 na 10 września 2025 roku."
+  },
+  {
+    tytul: "Zabłocie-Kolonia",
+    data: "09.09.2025",
+    typ: "dron",
+    lat: 51.837816178723564,
+    lng: 23.59650325515736,
+    opis: "Jedna z lokalizacji odnalezionych dronów z naruszenia polskiej przestrzeni powietrznej przez kilkanaście dronów Federacji Rosyjskiej w nocy z 9 na 10 września 2025 roku."
+  },
+  {
+    tytul: "Wohyń",
+    data: "09.09.2025",
+    typ: "dron",
+    lat: 51.75375023890302,
+    lng: 22.783093871228992,
+    opis: "Jedna z lokalizacji odnalezionych dronów z naruszenia polskiej przestrzeni powietrznej przez kilkanaście dronów Federacji Rosyjskiej w nocy z 9 na 10 września 2025 roku."
+  },
+  {
+    tytul: "Wyhalew",
+    data: "09.09.2025",
+    typ: "dron",
+    lat: 51.61732317853242,
+    lng: 23.168254460064098,
+    opis: "Jedna z lokalizacji odnalezionych dronów z naruszenia polskiej przestrzeni powietrznej przez kilkanaście dronów Federacji Rosyjskiej w nocy z 9 na 10 września 2025 roku."
+  },
+  {
+    tytul: "Wyryki-Wola",
+    data: "09.09.2025",
+    typ: "dron",
+    lat: 51.562146662868926,
+    lng: 23.368771393461756,
+    opis: "Jedna z lokalizacji odnalezionych dronów z naruszenia polskiej przestrzeni powietrznej przez kilkanaście dronów Federacji Rosyjskiej w nocy z 9 na 10 września 2025 roku."
+  },
+  {
+    tytul: "Wielki Łan",
+    data: "09.09.2025",
+    typ: "dron",
+    lat: 51.48222054617763,
+    lng: 23.207180422059448,
+    opis: "Jedna z lokalizacji odnalezionych dronów z naruszenia polskiej przestrzeni powietrznej przez kilkanaście dronów Federacji Rosyjskiej w nocy z 9 na 10 września 2025 roku."
+  },
+  {
+    tytul: "Krzywowierzba-Kolonia",
+    data: "09.09.2025",
+    typ: "dron",
+    lat: 51.58563363108437,
+    lng: 23.172167088162414,
+    opis: "Jedna z lokalizacji odnalezionych dronów z naruszenia polskiej przestrzeni powietrznej przez kilkanaście dronów Federacji Rosyjskiej w nocy z 9 na 10 września 2025 roku."
+  },
+  {
+    tytul: "Bychawka Trzecia",
+    data: "09.09.2025",
+    typ: "dron",
+    lat: 51.0733657949165,
+    lng: 22.52994770838587,
+    opis: "Jedna z lokalizacji odnalezionych dronów z naruszenia polskiej przestrzeni powietrznej przez kilkanaście dronów Federacji Rosyjskiej w nocy z 9 na 10 września 2025 roku."
+  },
+  {
+    tytul: "Stanisławka",
+    data: "09.09.2025",
+    typ: "dron",
+    lat: 50.79508016676507,
+    lng: 23.426327786165324,
+    opis: "Jedna z lokalizacji odnalezionych dronów z naruszenia polskiej przestrzeni powietrznej przez kilkanaście dronów Federacji Rosyjskiej w nocy z 9 na 10 września 2025 roku."
+  },
+  {
+    tytul: "Cześniki",
+    data: "09.09.2025",
+    typ: "dron",
+    lat: 50.70312348794064,
+    lng: 23.4398188789553,
+    opis: "Jedna z lokalizacji odnalezionych dronów z naruszenia polskiej przestrzeni powietrznej przez kilkanaście dronów Federacji Rosyjskiej w nocy z 9 na 10 września 2025 roku."
+  },
+  {
+    tytul: "Przymiarki",
+    data: "09.09.2025",
+    typ: "dron",
+    lat: 50.41334384550114,
+    lng: 22.784337070742414,
+    opis: "Jedna z lokalizacji odnalezionych dronów z naruszenia polskiej przestrzeni powietrznej przez kilkanaście dronów Federacji Rosyjskiej w nocy z 9 na 10 września 2025 roku."
+  },
+  {
+    tytul: "platforma Orlen Petrobaltic",
+    data: "09.09.2025",
+    typ: "samolot",
+    lat: 55.33838777657288,
+    lng: 18.66375768677063,
+    opis: "Dwa rosyjskie myśliwce naruszyły strefę bezpieczeństwa platformy Orlen Petrobaltic, położonej w polskiej strefie ekonomicznej Morza Bałtyckiego, ok. 70 km na północ od Jastarni."
+  },
+  {
+    tytul: "Zaborowo",
+    data: "24.12.2025",
+    typ: "balon",
+    lat: 53.50051520301715,
+    lng: 22.445024024900945,
+    opis: "Według Biura Bezpieczeństwa Narodowego, kilkadziesiąt obiektów, w tym cztery zidentyfikowane jako balony przemytnicze, wdarły się w nocy do polskiej przestrzeni powietrznej z Białorusi. Według polskich urzędników te działania były „prowokacją podszywającą się pod operację przemytniczą”."
+  },
+  {
+    tytul: "Boguszewo",
+    data: "24.12.2025",
+    typ: "balon",
+    lat: 53.33587275357804,
+    lng: 22.78045175426912,
+    opis: "Według Biura Bezpieczeństwa Narodowego, kilkadziesiąt obiektów, w tym cztery zidentyfikowane jako balony przemytnicze, wdarły się w nocy do polskiej przestrzeni powietrznej z Białorusi. Według polskich urzędników te działania były „prowokacją podszywającą się pod operację przemytniczą”."
+  },
+  {
+    tytul: "Goniądz",
+    data: "24.12.2025",
+    typ: "balon",
+    lat: 53.489357952204365,
+    lng: 22.734988159682235,
+    opis: "Według Biura Bezpieczeństwa Narodowego, kilkadziesiąt obiektów, w tym cztery zidentyfikowane jako balony przemytnicze, wdarły się w nocy do polskiej przestrzeni powietrznej z Białorusi. Według polskich urzędników te działania były „prowokacją podszywającą się pod operację przemytniczą”."
+  },
+  {
+    tytul: "Łozowo",
+    data: "24.12.2025",
+    typ: "balon",
+    lat: 53.58478610215214,
+    lng: 23.386438229856385,
+    opis: "Według Biura Bezpieczeństwa Narodowego, kilkadziesiąt obiektów, w tym cztery zidentyfikowane jako balony przemytnicze, wdarły się w nocy do polskiej przestrzeni powietrznej z Białorusi. Według polskich urzędników te działania były „prowokacją podszywającą się pod operację przemytniczą”."
+  },
+  {
+    tytul: "Królewski Dwór",
+    data: "24.12.2025",
+    typ: "balon",
+    lat: 51.65934874141911,
+    lng: 22.873370875903753,
+    opis: "Według Biura Bezpieczeństwa Narodowego, kilkadziesiąt obiektów, w tym cztery zidentyfikowane jako balony przemytnicze, wdarły się w nocy do polskiej przestrzeni powietrznej z Białorusi. Według polskich urzędników te działania były „prowokacją podszywającą się pod operację przemytniczą”."
+  },
+  {
+    tytul: "Huszcza Druga",
+    data: "24.12.2025",
+    typ: "balon",
+    lat: 51.8692377606174,
+    lng: 23.29756909072627,
+    opis: "Według Biura Bezpieczeństwa Narodowego, kilkadziesiąt obiektów, w tym cztery zidentyfikowane jako balony przemytnicze, wdarły się w nocy do polskiej przestrzeni powietrznej z Białorusi. Według polskich urzędników te działania były „prowokacją podszywającą się pod operację przemytniczą”."
+  },
+   {
+    tytul: "Małaszewicze",
+    data: "24.12.2025",
+    typ: "balon",
+    lat: 52.02303823643989,
+    lng: 23.533952665602705,
+    opis: "Według Biura Bezpieczeństwa Narodowego, kilkadziesiąt obiektów, w tym cztery zidentyfikowane jako balony przemytnicze, wdarły się w nocy do polskiej przestrzeni powietrznej z Białorusi. Według polskich urzędników te działania były „prowokacją podszywającą się pod operację przemytniczą”."
+  },
+  {
+    tytul: "Przasnysz",
+    data: "28.01.2026",
+    typ: "dron",
+    lat: 53.014315555659365,
+    lng: 20.90397736055899,
+    opis: "Dron nieznanego pochodzenia spadł na jednostkę wojskową 2 Ośrodka Radioelektronicznego w Przasnyszu. Obiekt był wcześniej obserwowany przez służbę dyżurną, jednak w pewnym momencie spadł na bazę, ok. 70 m od magazynu uzbrojenia. Było podejrzenie, że to dron rozpoznawczy, który sczytywał urządzenia pola antenowego."
+  },
+  {
+    tytul: "Młynik",
+    data: "21.03.2026",
+    typ: "balon",
+    lat: 53.11984973032201,
+    lng: 21.908816939931956,
+    opis: "Polskie władze poinformowały o znalezieniu pięciu balonów przemytniczych w powiatach łomżyńskim, monieckim, siemiatyckim, bielskim i białostockim w województwie podlaskim, wzdłuż wschodniej granicy polsko-białoruskiej."
+  },
+  {
+    tytul: "Jaświły",
+    data: "27.08.2026",
+    typ: "balon",
+    lat: 53.47905506024414,
+    lng: 22.949355562773675,
+    opis: "balonik"
+  },
+  {
+    tytul: "Zygmunty",
+    data: "27.08.2026",
+    typ: "balon",
+    lat: 53.24833158606156,
+    lng: 22.831647119441406,
+    opis: "balonik"
+  },
+  {
+    tytul: "Jabłonka Kościelna",
+    data: "27.08.2026",
+    typ: "balon",
+    lat: 52.95065381559638,
+    lng: 22.367163431539613,
+    opis: "balonik"
+  },
+  {
+    tytul: "Tajno Podjeziorne",
+    data: "27.08.2026",
+    typ: "balon",
+    lat: 53.70194310544734,
+    lng: 22.845910089506344,
+    opis: "balonik"
+  },
+  {
+    tytul: "Białystok",
+    data: "27.08.2026",
+    typ: "balon",
+    lat: 53.12931847646315,
+    lng: 23.11814889490999,
+    opis: "balonik"
+  },
+  {
+    tytul: "Kleosin",
+    data: "27.08.2026",
+    typ: "balon",
+    lat: 53.09725670899074,
+    lng: 23.11766681357556,
+    opis: "balonik"
+  },
+  {
+    tytul: "Wierzchłowce",
+    data: "16.01.2026",
+    typ: "balon",
+    lat: 53.380822613261515,
+    lng: 23.44520380858298,
+    opis: "balonik"
+  },
+   {
+    tytul: "Białystok",
+    data: "16.01.2026",
+    typ: "balon",
+    lat: 53.13857996684047,
+    lng: 23.15735509236968,
+    opis: "balonik"
+  },
+   {
+    tytul: "Osieka",
+    data: "16.01.2026",
+    typ: "dron",
+    lat: 54.21167554986207,
+    lng: 20.78457458460081,
+    opis: "Żandarmeria Wojskowa poinformowała, że odnaleziono rosyjskiego drona, który spadł na pole w pobliżu wsi Osieka (niedaleko Bartoszyc) w województwie warmińsko-mazurskim, wkrótce po tym, jak niezauważony przeleciał nad granicą z obwodem królewieckim. Żandarmeria, strażacy i saperzy zbadali drona i stwierdzili, że „był to wojskowy dron rozpoznawczy, bez zdolności bojowych”, nie stanowiący zagrożenia. Był wyposażony w kilka kamer zamontowanych na kadłubie i posiadał napisy w cyrylicy."
+  },
+  {
+    tytul: "Tarnawa-Kolonia",
+    data: "30.07.2026",
+    typ: "rakieta",
+    lat: 50.85282832563621,
+    lng: 22.6528857491199,
+    opis: "Wczesnym rankiem, podczas rosyjskiego ataku rakietowego na Lwów, wykryto jedną rakietę w pobliżu granicy polsko-ukraińskiej, jednak zawróciła. Następnie, w polskiej przestrzeni powietrznej wykryto kolejny pocisk, który został wykryty przez radar ok. 3:46 czasu lokalnego, w wyniku czego Polskie Siły Powietrzne wysłały F-16 w celu jego przechwycenia. Jednakże kilka minut później rakieta zniknęła z radaru, kontynuowała lot przez 92 km i ostatecznie explodowała się na polu oddalonym o 2 km od zabudowań, w pobliżu wsi Tarnawa-Kolonia (ok. 45 km na południe od Lublina) w województwie lubelskim, tworząc krater o średnicy 10 m i głębokości 4,9 m. Tego samego dnia premier Donald Tusk oświadczył, że szczątki rozrzucone w promieniu 200 m od krateru pozwoliły na identyfikację pocisku jako pocisku manewrującego Ch-101."
+  },
+];
+
+// Wyświetlanie znaczników-kółek na mapie
+incydenty.forEach(punkt => {
+  L.marker([punkt.lat, punkt.lng], { icon: stworzIkone(punkt.typ) })
+    .addTo(map)
+    .bindPopup(`<b>${punkt.tytul}</b><br>Data: ${punkt.data}<br><p>${punkt.opis}</p>`);
+});
+  </script>
+</body>
+</html>
